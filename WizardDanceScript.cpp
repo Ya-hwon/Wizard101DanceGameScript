@@ -294,7 +294,7 @@ int main() {
 		[] {
 			for ( ;; ) {
 				iOHandler.read();
-				std::this_thread::sleep_for( 50ms );
+				std::this_thread::sleep_for( 5ms );
 				iOHandler.draw();
 			}}
 	).detach();
