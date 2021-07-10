@@ -13,6 +13,6 @@ The program starts in locked mode, to change this type 'unlock' in the console, 
 
 Now just start a game and it should automatically complete.
 
-Exit the program either via closing the vindow or via the exit command.
+Exit the program either via closing the vindow or via the 'exit' command.
 
-If something should somehow go wrong either try the reset command or restart the program.
+If something should somehow go wrong either try the 'reset' command or restart the program.
