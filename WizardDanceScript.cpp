@@ -15,7 +15,7 @@
 
 using namespace std::chrono_literals;
 
-#define THRESHHOLD 150
+#define THRESHHOLD 120
 #define PRECISION 128
 
 
@@ -56,7 +56,7 @@ public:
 
 	void saveSettings() {
 		fileStream.open( "settings.txt", std::fstream::out | std::fstream::trunc );
-		if ( !fileStream.good() )throw "Error creating file";
+		if ( !fileStream.good() ) { std::cerr << "\u001b[31mERROR: Could not create settings file.\u001b[37m\n"; std::this_thread::sleep_for( 3s ); std::exit( EXIT_FAILURE ); };
 		fileStream << std::to_string( size ) << '\n' << std::to_string( baseX ) << '\n' << std::to_string( baseY ) << '\n';
 		fileStream.close();
 	}
@@ -92,6 +92,17 @@ public:
 		if ( targetLockedIn )return;
 
 		HDC hdc = GetDC( NULL );
+
+		if ( hdc == NULL ) {
+			std::cerr << "\u001b[31mERROR: Could not get device context, retrying...\u001b[37m\n";
+			hdc = GetDC( NULL );
+			if ( hdc == NULL ) {
+				std::cerr << "\u001b[31mERROR: Failed, exiting.\u001b[37m\n";
+				std::this_thread::sleep_for( 3s );
+				std::exit( EXIT_FAILURE );
+			}
+			std::cout << "\u001b[32mWorked.\u001b[37m\n";
+		}
 
 		if ( !targetLockedIn ) {
 			POINT p;
@@ -130,7 +141,7 @@ public:
 
 	void press( DIR dir ) {
 		if ( dir == INV )return;
-		std::cout << "pressing " << DIRSTR[dir - 0x25] << std::endl;
+		std::cout << "Pressing " << DIRSTR[dir - 0x25] << ".\n";
 
 		INPUT inputs[2] = {};
 		ZeroMemory( inputs, sizeof( inputs ) );
@@ -139,7 +150,40 @@ public:
 		inputs[1].type = INPUT_KEYBOARD;
 		inputs[1].ki.wVk = dir;
 		inputs[1].ki.dwFlags = KEYEVENTF_KEYUP;
-		SendInput( ARRAYSIZE( inputs ), inputs, sizeof( INPUT ) );
+		if ( SendInput( ARRAYSIZE( inputs ), inputs, sizeof( INPUT ) ) != ARRAYSIZE( inputs ) ) {
+			std::cerr << "\u001b[31mERROR: Could not send input (keyboard).\u001b[37m\n";
+		}
+	}
+
+	void click( float mulX, float mulY ) {
+		INPUT moveInput[1] = {};
+		ZeroMemory( moveInput, sizeof( moveInput ) );
+
+		moveInput[0].type = INPUT_MOUSE;
+		moveInput[0].mi.dx = (int)(65535 * mulX);
+		moveInput[0].mi.dy = (int)(65535 * mulY);
+		moveInput[0].mi.dwFlags = MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_MOVE;
+
+		std::this_thread::sleep_for( 100ms );
+
+		if ( SendInput( ARRAYSIZE( moveInput ), moveInput, sizeof( INPUT ) ) != ARRAYSIZE( moveInput ) ) {
+			std::cerr << "\u001b[31mERROR: Could not send input (mouse).\u001b[37m\n";
+		}
+
+		INPUT clickInput[2] = {};
+		ZeroMemory( clickInput, sizeof( clickInput ) );
+
+		clickInput[0].type = INPUT_MOUSE;
+		clickInput[0].mi.dwFlags = MOUSEEVENTF_LEFTDOWN;
+
+		clickInput[1].type = INPUT_MOUSE;
+		clickInput[1].mi.dwFlags = MOUSEEVENTF_LEFTUP;
+
+		std::this_thread::sleep_for( 200ms );
+
+		if ( SendInput( ARRAYSIZE( clickInput ), clickInput, sizeof( INPUT ) ) != ARRAYSIZE( clickInput ) ) {
+			std::cerr << "\u001b[31mERROR: Could not send input (mouse).\u001b[37m\n";
+		}
 	}
 
 	void reset() {
@@ -153,36 +197,49 @@ public:
 
 		HDC hdc = GetDC( NULL );
 
+		if ( hdc == NULL ) {
+			std::cerr << "\u001b[31mERROR: Could not get device context, retrying...\u001b[37m\n";
+			hdc = GetDC( NULL );
+			if ( hdc == NULL ) {
+				std::cerr << "\u001b[31mERROR: Failed, exiting.\u001b[37m\n";
+				std::this_thread::sleep_for( 3s );
+				std::exit( EXIT_FAILURE );
+			}
+			std::cout << "\u001b[32mWorked.\u001b[37m\n";
+		}
+
 		COLORREF CENTERPIXEL = GetPixel( hdc, baseX, baseY );
 
-		if ( CENTERPIXEL == CLR_INVALID ) { ReleaseDC( NULL, hdc ); return; }
+		if ( CENTERPIXEL == CLR_INVALID ) { std::cerr << "\u001b[31mERROR: Invalid pixel colour.\u001b[37m\n"; ReleaseDC( NULL, hdc ); return; }
 
 		bool isYellowIsh = (int)GetRValue( CENTERPIXEL ) > 180 && (int)GetGValue( CENTERPIXEL ) > 180 && (int)GetBValue( CENTERPIXEL ) < 100;
-		if ( !isYellowIsh ) { if ( directions.back() != INV )directions.push_back( INV ); return; }
+		if ( !isYellowIsh ) { if ( directions.back() != INV )directions.push_back( INV ); ReleaseDC( NULL, hdc ); return; }
 
 		COLORREF UPPIXELS[3];
 		UPPIXELS[0] = GetPixel( hdc, baseX, baseY - size / 1.2 );
 		UPPIXELS[1] = GetPixel( hdc, baseX + size / 2, baseY - size / 10 );
 		UPPIXELS[2] = GetPixel( hdc, baseX - size / 2, baseY - size / 10 );
-		if ( UPPIXELS[0] == CLR_INVALID || UPPIXELS[1] == CLR_INVALID || UPPIXELS[2] == CLR_INVALID ) { ReleaseDC( NULL, hdc ); return; }
+		if ( UPPIXELS[0] == CLR_INVALID || UPPIXELS[1] == CLR_INVALID || UPPIXELS[2] == CLR_INVALID ) { std::cerr << "\u001b[31mERROR: Invalid pixel colour.\u001b[37m\n"; ReleaseDC( NULL, hdc ); return; }
 
 		COLORREF LEFTPIXELS[3];
 		LEFTPIXELS[0] = GetPixel( hdc, baseX - size / 1.2, baseY );
 		LEFTPIXELS[1] = GetPixel( hdc, baseX - size / 10, baseY + size / 2 );
 		LEFTPIXELS[2] = GetPixel( hdc, baseX - size / 10, baseY - size / 2 );
-		if ( LEFTPIXELS[0] == CLR_INVALID || LEFTPIXELS[1] == CLR_INVALID || LEFTPIXELS[2] == CLR_INVALID ) { ReleaseDC( NULL, hdc ); return; }
+		if ( LEFTPIXELS[0] == CLR_INVALID || LEFTPIXELS[1] == CLR_INVALID || LEFTPIXELS[2] == CLR_INVALID ) { std::cerr << "\u001b[31mERROR: Invalid pixel colour.\u001b[37m\n"; ReleaseDC( NULL, hdc ); return; }
 
 		COLORREF DOWNPIXELS[3];
 		DOWNPIXELS[0] = GetPixel( hdc, baseX, baseY + size / 1.2 );
 		DOWNPIXELS[1] = GetPixel( hdc, baseX + size / 2, baseY + size / 10 );
 		DOWNPIXELS[2] = GetPixel( hdc, baseX - size / 2, baseY + size / 10 );
-		if ( DOWNPIXELS[0] == CLR_INVALID || DOWNPIXELS[1] == CLR_INVALID || DOWNPIXELS[2] == CLR_INVALID ) { ReleaseDC( NULL, hdc ); return; }
+		if ( DOWNPIXELS[0] == CLR_INVALID || DOWNPIXELS[1] == CLR_INVALID || DOWNPIXELS[2] == CLR_INVALID ) { std::cerr << "\u001b[31mERROR: Invalid pixel colour.\u001b[37m\n"; ReleaseDC( NULL, hdc ); return; }
 
 		COLORREF RIGHTPIXELS[3];
 		RIGHTPIXELS[0] = GetPixel( hdc, baseX + size / 1.2, baseY );
 		RIGHTPIXELS[1] = GetPixel( hdc, baseX + size / 10, baseY + size / 2 );
 		RIGHTPIXELS[2] = GetPixel( hdc, baseX + size / 10, baseY - size / 2 );
-		if ( RIGHTPIXELS[0] == CLR_INVALID || RIGHTPIXELS[1] == CLR_INVALID || RIGHTPIXELS[2] == CLR_INVALID ) { ReleaseDC( NULL, hdc ); return; }
+		if ( RIGHTPIXELS[0] == CLR_INVALID || RIGHTPIXELS[1] == CLR_INVALID || RIGHTPIXELS[2] == CLR_INVALID ) { std::cerr << "\u001b[31mERROR: Invalid pixel colour.\u001b[37m\n"; ReleaseDC( NULL, hdc ); return; }
+
+		ReleaseDC( NULL, hdc );
 
 		DIR d = INV;
 
@@ -219,7 +276,7 @@ public:
 			directions.push_back( d );
 
 			if ( d != INV ) {
-				std::cout << "read " << DIRSTR[d - 0x25] << std::endl;
+				std::cout << "Read " << DIRSTR[d - 0x25] << ".\n";
 				current++;
 
 				if ( round + 3 == current ) {
@@ -233,15 +290,48 @@ public:
 					}
 					directions.clear();
 					directions.push_back( INV );
+					std::cout << std::endl;
+					std::this_thread::sleep_for( 1s );
 
 					if ( round == 5 ) {
 						round = 0; 
+						std::this_thread::sleep_for( 2s );
+
+						std::cout << "Clicking 'NEXT'.\n";
+						click( 0.6597, 0.8363 ); //next
+
+						std::this_thread::sleep_for( 1s );
+
+						std::cout << "Selecting first snack.\n";
+						click( 0.3298, 0.7272 ); //select first snack
+
+						std::this_thread::sleep_for( 1s );
+
+						std::cout << "Clicking 'FEED PET'.\n";
+						click( 0.6597, 0.8363 ); //feed
+
+						std::this_thread::sleep_for( 1s );
+
+						std::cout << "Clicking 'PLAY AGAIN'.\n";
+						click( 0.5, 0.8363 ); //play again
+
+						std::this_thread::sleep_for( 4s );
+
+						std::cout << "Clicking Krokotpoia.\n";
+						click( 0.4123, 0.7407 ); //select krokotopia
+
+						std::this_thread::sleep_for( 1s );
+
+						std::cout << "Clicking 'PLAY'.\n";
+						click( 0.6597, 0.8363 ); //play
+
+						std::this_thread::sleep_for( 2s );
+
 						system( "cls" );
 					}
 				}
 			}
 		}
-		ReleaseDC( NULL, hdc );
 	}
 
 } iOHandler;
@@ -252,7 +342,7 @@ void handleInput() {
 		std::getline( std::cin, in );
 		if ( in == "lock" ) {
 			iOHandler.targetLockedIn = true;
-			std::cout << "X: " << iOHandler.baseX << "; Y: " << iOHandler.baseY << std::endl;
+			std::cout << "X: " << iOHandler.baseX << "; Y: " << iOHandler.baseY << ".\n";
 			iOHandler.saveSettings();
 		}
 		else if ( in == "unlock" ) {
@@ -284,11 +374,13 @@ void handleInput() {
 				iOHandler.saveSettings();
 			}
 		}
+		else {
+			std::cerr << "\u001b[31mERROR: Unrecognized command.\u001b[37m\n";
+		}
 	}
 }
 
 int main() {
-
 	iOHandler.generate();
 	std::thread(
 		[] {
