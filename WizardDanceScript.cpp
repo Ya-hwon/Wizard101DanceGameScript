@@ -94,22 +94,20 @@ public:
 		HDC hdc = GetDC( NULL );
 
 		if ( hdc == NULL ) {
-			std::cerr << "\u001b[31mERROR: Could not get device context, retrying...\u001b[37m\n";
-			hdc = GetDC( NULL );
-			if ( hdc == NULL ) {
-				std::cerr << "\u001b[31mERROR: Failed, exiting.\u001b[37m\n";
-				std::this_thread::sleep_for( 3s );
-				std::exit( EXIT_FAILURE );
-			}
-			std::cout << "\u001b[32mWorked.\u001b[37m\n";
-		}
+					std::cerr << "\u001b[31mERROR: Could not get device context, retrying...\u001b[37m\n";
+					hdc = GetDC( NULL );
+					if ( hdc == NULL ) {
+						std::cerr << "\u001b[31mERROR: Failed, exiting.\u001b[37m\n";
+						std::this_thread::sleep_for( 3s );
+						std::exit( EXIT_FAILURE );
+					}
+					std::cout << "\u001b[32mWorked.\u001b[37m\n";
+				}
 
-		if ( !targetLockedIn ) {
-			POINT p;
-			GetCursorPos( &p );
-			baseX = p.x;
-			baseY = p.y;
-		}
+		POINT p;
+		GetCursorPos( &p );
+		baseX = p.x;
+		baseY = p.y;
 
 		//UP
 		SetPixel( hdc, baseX, baseY - size / 1.2, RGB( 0, 255, 0 ) );
@@ -141,7 +139,7 @@ public:
 
 	void press( DIR dir ) {
 		if ( dir == INV )return;
-		std::cout << "Pressing " << DIRSTR[dir - 0x25] << ".\n";
+		std::cout << "Pressing " << DIRSTR[dir - LEFT] << ".\n";
 
 		INPUT inputs[2] = {};
 		ZeroMemory( inputs, sizeof( inputs ) );
@@ -152,37 +150,6 @@ public:
 		inputs[1].ki.dwFlags = KEYEVENTF_KEYUP;
 		if ( SendInput( ARRAYSIZE( inputs ), inputs, sizeof( INPUT ) ) != ARRAYSIZE( inputs ) ) {
 			std::cerr << "\u001b[31mERROR: Could not send input (keyboard).\u001b[37m\n";
-		}
-	}
-
-	void click( float mulX, float mulY ) {
-		INPUT moveInput[1] = {};
-		ZeroMemory( moveInput, sizeof( moveInput ) );
-
-		moveInput[0].type = INPUT_MOUSE;
-		moveInput[0].mi.dx = (int)(65535 * mulX);
-		moveInput[0].mi.dy = (int)(65535 * mulY);
-		moveInput[0].mi.dwFlags = MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_MOVE;
-
-		std::this_thread::sleep_for( 100ms );
-
-		if ( SendInput( ARRAYSIZE( moveInput ), moveInput, sizeof( INPUT ) ) != ARRAYSIZE( moveInput ) ) {
-			std::cerr << "\u001b[31mERROR: Could not send input (mouse).\u001b[37m\n";
-		}
-
-		INPUT clickInput[2] = {};
-		ZeroMemory( clickInput, sizeof( clickInput ) );
-
-		clickInput[0].type = INPUT_MOUSE;
-		clickInput[0].mi.dwFlags = MOUSEEVENTF_LEFTDOWN;
-
-		clickInput[1].type = INPUT_MOUSE;
-		clickInput[1].mi.dwFlags = MOUSEEVENTF_LEFTUP;
-
-		std::this_thread::sleep_for( 200ms );
-
-		if ( SendInput( ARRAYSIZE( clickInput ), clickInput, sizeof( INPUT ) ) != ARRAYSIZE( clickInput ) ) {
-			std::cerr << "\u001b[31mERROR: Could not send input (mouse).\u001b[37m\n";
 		}
 	}
 
@@ -276,7 +243,7 @@ public:
 			directions.push_back( d );
 
 			if ( d != INV ) {
-				std::cout << "Read " << DIRSTR[d - 0x25] << ".\n";
+				std::cout << "Read " << DIRSTR[d - LEFT] << ".\n";
 				current++;
 
 				if ( round + 3 == current ) {
@@ -290,40 +257,9 @@ public:
 					}
 					directions.clear();
 					directions.push_back( INV );
-					std::cout << std::endl;
-					std::this_thread::sleep_for( 1s );
 
 					if ( round == 5 ) {
-						round = 0; 
-						std::this_thread::sleep_for( 2s );
-
-						std::cout << "Clicking 'NEXT'.\n";
-						click( 0.6597, 0.8363 ); //next
-
-						std::this_thread::sleep_for( 1s );
-
-						std::cout << "Selecting first snack.\n";
-						click( 0.3298, 0.7272 ); //select first snack
-
-						std::this_thread::sleep_for( 1s );
-
-						std::cout << "Clicking 'FEED PET'.\n";
-						click( 0.6597, 0.8363 ); //feed
-
-						std::this_thread::sleep_for( 1s );
-
-						std::cout << "Clicking 'PLAY AGAIN'.\n";
-						click( 0.5, 0.8363 ); //play again
-
-						std::this_thread::sleep_for( 4s );
-
-						std::cout << "Clicking Krokotpoia.\n";
-						click( 0.4123, 0.7407 ); //select krokotopia
-
-						std::this_thread::sleep_for( 1s );
-
-						std::cout << "Clicking 'PLAY'.\n";
-						click( 0.6597, 0.8363 ); //play
+						round = 0;
 
 						std::this_thread::sleep_for( 2s );
 
@@ -381,6 +317,7 @@ void handleInput() {
 }
 
 int main() {
+
 	iOHandler.generate();
 	std::thread(
 		[] {
